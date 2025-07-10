@@ -63,7 +63,52 @@
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
-      var socket = io();
+      const socket = io("http://localhost:5000");
+      const form = document.getElementById("form");
+      const input = document.getElementById("input");
+      const messages = document.getElementById("messages");
+
+      let currentRoom = null;
+      let username = prompt("Enter your name");
+      let room = prompt("Enter room");
+
+      if (room) {
+        currentRoom = room;
+        socket.on("connect", () => {
+          socket.emit("join_room", room);
+        });
+      }
+
+      socket.on("receive_message", ({ user, message }) => {
+        const item = document.createElement("li");
+        item.textContent = `${user}: ${message}`;
+        messages.appendChild(item);
+        window.scroll(0, document.body.scrollHeight);
+      });
+
+      socket.on("server_message", (msg) => {
+        const item = document.createElement("li");
+        item.textContent = `* ${msg}`;
+        messages.appendChild(item);
+        window.scrollTo(0, document.body.scrollHeight);
+      });
+
+      form.addEventListener("submit", function (e) {
+        e.preventDefault();
+        if (input.value && currentRoom) {
+          socket.emit("send_message", {
+            room: currentRoom,
+            user: username,
+            message: input.value,
+          });
+
+          const item = document.createElement("li");
+          item.textContent = `You: ${input.value}`;
+          messages.appendChild(item);
+
+          input.value = "";
+        }
+      });
     </script>
   </body>
 </html>
