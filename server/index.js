@@ -28,41 +28,54 @@ await client.connect();
 
 // this function loops through the redis storage on the event of send_messages and emits that to every user except the current user
 
-async function sendMessage(socket) {
-  try {
-    const data = await client.lRange("send_message", 0, -1);
+// async function sendMessage(socket) {
+//   try {
+//     const data = await client.lRange("send_message", 0, -1);
 
-    data.forEach((x) => {
-      const [redisUser, redisMessage, redisRoom] = x.split(":");
+//     data.forEach((x) => {
+//       const [redisUser, redisMessage, redisRoom] = x.split(":");
 
-      socket.emit("send_message", {
-        user: redisUser,
-        message: redisMessage,
-        room: redisRoom,
-      });
-    });
-  } catch (err) {
-    console.error("Error fetching messages from Redis:", err);
-  }
-}
+//       socket.emit("send_message", {
+//         user: redisUser,
+//         message: redisMessage,
+//         room: redisRoom,
+//       });
+//     });
+//   } catch (err) {
+//     console.error("Error fetching messages from Redis:", err);
+//   }
+// }
 
 io.on("connection", (socket) => {
   console.log("user connected");
 
-  sendMessage(socket);
+  // sendMessage(socket);
   // joining a room
-  socket.on("join_room", (room) => {
-    console.log(`Joining room: ${room}`);
+  socket.on("join_room", async (room, username) => {
+    // console.log(`Joining room: ${room}`);
     socket.join(room);
-    socket.to(room).emit("server_message", `a user just joined ${room}`);
+    socket.to(room).emit("server_message", `${username}just joined ${room}`);
+    // redis key for each room
+    const redisKey = `chat:${room}`;
+
+    // get messages based on the room
+    const history = await client.lRange(redisKey, 0, -1);
+    history.forEach((items) => {
+      const { user, message, room } = JSON.parse(items);
+      socket.emit("chat_history", { user, message, room });
+    });
   });
 
-  // sending a chat message
-  socket.on("send_message", ({ room, user, message }) => {
-    console.log(`[${room}] ${user}, ${message}`);
+  // send_message event from client. when the client sends a message, redis saves the message and socket emits to every other room
+  socket.on("send_message", async ({ room, user, message }) => {
+    // console.log(`[${room}] ${user}, ${message}`);
+
+    const redisKey = `chat:${room}`;
+    const payload = JSON.stringify({ user, message, room });
 
     // push into redis array user and message
-    client.rPush("send_message", `${user}:${message}:${room}`);
+
+    await client.rPush(redisKey, payload);
 
     socket.to(room).emit("receive_message", { user, message });
   });

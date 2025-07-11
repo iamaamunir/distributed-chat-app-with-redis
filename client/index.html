@@ -78,7 +78,7 @@
         if (room) {
           currentRoom = room;
           socket.on("connect", () => {
-            socket.emit("join_room", room);
+            socket.emit("join_room", room, username);
           });
         }
 
@@ -96,21 +96,21 @@
           window.scrollTo(0, document.body.scrollHeight);
         });
         // only people in the same room can see the chat history
-        if (currentRoom === room) {
-          socket.on("send_message", ({ user, message, room }) => {
-            const item = document.createElement("li");
-            item.textContent = `${user} (from history): ${message}`;
-            messages.appendChild(item);
-            window.scrollTo(0, document.body.scrollHeight);
-          });
-        } else {
-          socket.on("receive_message", ({ user, message }) => {
-            const item = document.createElement("li");
-            item.textContent = `${user}: ${message}`;
-            messages.appendChild(item);
-            window.scroll(0, document.body.scrollHeight);
-          });
-        }
+
+        socket.on("chat_history", ({ user, message, room }) => {
+          const item = document.createElement("li");
+          console.log(item)
+          item.textContent = `${user} (past): ${message}`;
+          messages.appendChild(item);
+          window.scrollTo(0, document.body.scrollHeight);
+        });
+
+        // socket.on("send_message", ({ user, message, room }) => {
+        //   const item = document.createElement("li");
+        //   item.textContent = `${user} (from history): ${message}`;
+        //   messages.appendChild(item);
+        //   window.scrollTo(0, document.body.scrollHeight);
+        // });
 
         form.addEventListener("submit", function (e) {
           e.preventDefault();
