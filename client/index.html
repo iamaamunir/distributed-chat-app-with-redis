@@ -63,52 +63,74 @@
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
-      const socket = io("http://localhost:5000");
       const form = document.getElementById("form");
       const input = document.getElementById("input");
       const messages = document.getElementById("messages");
 
       let currentRoom = null;
-      let username = prompt("Enter your name");
-      let room = prompt("Enter room");
+      let username;
+      let room;
+      let socket;
+      async function initializeChat() {
+        socket = io("http://localhost:5000");
+        username = prompt("Enter your name");
+        room = prompt("Enter room");
+        if (room) {
+          currentRoom = room;
+          socket.on("connect", () => {
+            socket.emit("join_room", room);
+          });
+        }
 
-      if (room) {
-        currentRoom = room;
-        socket.on("connect", () => {
-          socket.emit("join_room", room);
+        socket.on("receive_message", ({ user, message }) => {
+          const item = document.createElement("li");
+          item.textContent = `${user}: ${message}`;
+          messages.appendChild(item);
+          window.scroll(0, document.body.scrollHeight);
+        });
+
+        socket.on("server_message", (msg) => {
+          const item = document.createElement("li");
+          item.textContent = `* ${msg}`;
+          messages.appendChild(item);
+          window.scrollTo(0, document.body.scrollHeight);
+        });
+        // only people in the same room can see the chat history
+        if (currentRoom === room) {
+          socket.on("send_message", ({ user, message, room }) => {
+            const item = document.createElement("li");
+            item.textContent = `${user} (from history): ${message}`;
+            messages.appendChild(item);
+            window.scrollTo(0, document.body.scrollHeight);
+          });
+        } else {
+          socket.on("receive_message", ({ user, message }) => {
+            const item = document.createElement("li");
+            item.textContent = `${user}: ${message}`;
+            messages.appendChild(item);
+            window.scroll(0, document.body.scrollHeight);
+          });
+        }
+
+        form.addEventListener("submit", function (e) {
+          e.preventDefault();
+          if (input.value && currentRoom) {
+            socket.emit("send_message", {
+              room: currentRoom,
+              user: username,
+              message: input.value,
+            });
+
+            const item = document.createElement("li");
+            item.textContent = `You: ${input.value}`;
+            messages.appendChild(item);
+
+            input.value = "";
+          }
         });
       }
-
-      socket.on("receive_message", ({ user, message }) => {
-        const item = document.createElement("li");
-        item.textContent = `${user}: ${message}`;
-        messages.appendChild(item);
-        window.scroll(0, document.body.scrollHeight);
-      });
-
-      socket.on("server_message", (msg) => {
-        const item = document.createElement("li");
-        item.textContent = `* ${msg}`;
-        messages.appendChild(item);
-        window.scrollTo(0, document.body.scrollHeight);
-      });
-
-      form.addEventListener("submit", function (e) {
-        e.preventDefault();
-        if (input.value && currentRoom) {
-          socket.emit("send_message", {
-            room: currentRoom,
-            user: username,
-            message: input.value,
-          });
-
-          const item = document.createElement("li");
-          item.textContent = `You: ${input.value}`;
-          messages.appendChild(item);
-
-          input.value = "";
-        }
-      });
+      window.onload = initializeChat;
     </script>
   </body>
 </html>
+<!-- Initialy when I open another tab after the first one, it doesnt ask for prompt for username and password so i had to wrap everything inside initializeChat and  attach it to window.onload so that anytime a window loads up, the function is called-->

@@ -4,6 +4,7 @@ import { Server } from "socket.io";
 import * as dotenv from "dotenv";
 import { dirname, join } from "path";
 import path from "path";
+import redis from "redis";
 import { fileURLToPath } from "url";
 
 // Fix __dirname for ES modules
@@ -17,11 +18,38 @@ const PORT = process.env.PORT;
 
 const server = http.createServer(app);
 const io = new Server(server);
+// create redis client
+const client = redis.createClient();
+client.on("error", (err) => {
+  console.error("Redis client error:", err);
+});
 
-//
+await client.connect();
+
+// this function loops through the redis storage on the event of send_messages and emits that to every user except the current user
+
+async function sendMessage(socket) {
+  try {
+    const data = await client.lRange("send_message", 0, -1);
+
+    data.forEach((x) => {
+      const [redisUser, redisMessage, redisRoom] = x.split(":");
+
+      socket.emit("send_message", {
+        user: redisUser,
+        message: redisMessage,
+        room: redisRoom,
+      });
+    });
+  } catch (err) {
+    console.error("Error fetching messages from Redis:", err);
+  }
+}
+
 io.on("connection", (socket) => {
   console.log("user connected");
 
+  sendMessage(socket);
   // joining a room
   socket.on("join_room", (room) => {
     console.log(`Joining room: ${room}`);
@@ -32,6 +60,10 @@ io.on("connection", (socket) => {
   // sending a chat message
   socket.on("send_message", ({ room, user, message }) => {
     console.log(`[${room}] ${user}, ${message}`);
+
+    // push into redis array user and message
+    client.rPush("send_message", `${user}:${message}:${room}`);
+
     socket.to(room).emit("receive_message", { user, message });
   });
   // disconnect user when they close the tab
