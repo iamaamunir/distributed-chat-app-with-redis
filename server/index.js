@@ -26,30 +26,8 @@ client.on("error", (err) => {
 
 await client.connect();
 
-// this function loops through the redis storage on the event of send_messages and emits that to every user except the current user
-
-// async function sendMessage(socket) {
-//   try {
-//     const data = await client.lRange("send_message", 0, -1);
-
-//     data.forEach((x) => {
-//       const [redisUser, redisMessage, redisRoom] = x.split(":");
-
-//       socket.emit("send_message", {
-//         user: redisUser,
-//         message: redisMessage,
-//         room: redisRoom,
-//       });
-//     });
-//   } catch (err) {
-//     console.error("Error fetching messages from Redis:", err);
-//   }
-// }
-
 io.on("connection", (socket) => {
   console.log("user connected");
-
-  // sendMessage(socket);
   // joining a room
   socket.on("join_room", async (room, username) => {
     // console.log(`Joining room: ${room}`);
