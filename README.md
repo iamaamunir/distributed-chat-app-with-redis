@@ -44,15 +44,17 @@ A lightweight, real-time chat application built with Socket.IO, Express, and Van
    npm install
    ```
 
-3. Set up .env
+3. Install Redis
+
+4. Set up .env
     ```sh
    PORT=5000
    ```
-4. Start the server
+5. Start the server
     ```sh
     node server/index.js
    ```
-5. Open your browser
+6. Open your browser
     ```sh
    Go to http://localhost:5000 in two tabs or devices to test real-time messaging.
    ```
