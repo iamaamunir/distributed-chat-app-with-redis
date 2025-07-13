@@ -35,7 +35,9 @@ const io = new Server(server);
 // io.adapter(createAdapter(pubClient, subClient));
 
 // create redis client
-const client = redis.createClient();
+const client = redis.createClient({
+  url: process.env.REDIS_URL
+});
 client.on("error", (err) => {
   console.error("Redis client error:", err);
 });
