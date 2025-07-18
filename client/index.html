@@ -42,6 +42,18 @@
         color: #fff;
       }
 
+      .server-info {
+        background: #007bff;
+        color: white;
+        padding: 0.5rem;
+        text-align: center;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 1000;
+      }
+
       #messages {
         list-style-type: none;
         margin: 0;
@@ -56,6 +68,9 @@
     </style>
   </head>
   <body>
+    <div class="server-info">
+      Connected to: <span id="server-port">Unknown</span>
+    </div>
     <ul id="messages"></ul>
     <form id="form" action="">
       <input id="input" autocomplete="off" /><button>Send</button>
@@ -66,13 +81,18 @@
       const form = document.getElementById("form");
       const input = document.getElementById("input");
       const messages = document.getElementById("messages");
+      const serverPortElement = document.getElementById("server-port");
 
       let currentRoom = null;
       let username;
       let room;
       let socket;
       async function initializeChat() {
-        socket = io("http://localhost:5000");
+        const currentPort = window.location.port || '5000';
+        serverPortElement.textContent = `localhost:${currentPort}`;
+        
+        // Connect to the same port the client is served from
+        socket = io(`http://localhost:${currentPort}`);
         username = prompt("Enter your name");
         room = prompt("Enter room");
         if (room) {
