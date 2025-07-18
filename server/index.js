@@ -16,18 +16,22 @@ const __dirname = dirname(__filename);
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 10000;
 const NODE_ENV = process.env.NODE_ENV || "dev";
-const REDIS_URL =
-  process.env.REDIS_URL ||
-  (NODE_ENV === "prod" ? process.env.REDIS_URL : "redis://localhost:6379");
+const REDIS_URL = process.env.REDIS_URL;
 
 console.log(`Environment: ${NODE_ENV}`);
 console.log(`Redis URL: ${REDIS_URL.replace(/\/\/.*@/, "//***@")}`);
 
 // TODO: USE NGNIX OR HAPROXY LATER
-const pubClient = createClient({ url: REDIS_URL }); // publish events
+const pubClient = createClient({
+  url: REDIS_URL,
+  socket: { reconnectStrategy: (retries) => Math.min(retries * 50, 1000) },
+}); // publish events
 const subClient = pubClient.duplicate(); // to listen for events
+
+pubClient.on("error", (err) => console.error("PubClient error:", err));
+subClient.on("error", (err) => console.error("SubClient error:", err));
 
 await pubClient.connect();
 console.log("PubClient connected on", PORT);
@@ -39,12 +43,8 @@ const server = http.createServer(app);
 // const io = new Server(server);
 const io = new Server(server, {
   cors: {
-    origin:
-      NODE_ENV === "prod"
-        ? process.env.ALLOWED_ORIGINS?.split(",") || [
-            process.env.ALLOWED_ORIGINS,
-          ]
-        : "*",
+    origin: NODE_ENV === "prod" ? ["https://chat-lb.onrender.com"] : "*",
+    methods: ["GET", "POST"],
   },
 });
 
@@ -77,8 +77,8 @@ io.on("connection", (socket) => {
     // get messages based on the room
     const history = await client.lRange(redisKey, 0, -1);
     history.forEach((items) => {
-      const { user, message, room } = JSON.parse(items);
-      socket.emit("chat_history", { user, message, room });
+      const { user, message, room, timeStamp } = JSON.parse(items);
+      socket.emit("chat_history", { user, message, room, timeStamp });
     });
   });
 
@@ -87,11 +87,12 @@ io.on("connection", (socket) => {
     console.log(`[${room}] ${user}, ${message}`);
 
     const redisKey = `chat:${room}`;
-    const payload = JSON.stringify({ user, message, room });
+    const payload = JSON.stringify({ user, message, room, timeStamp: new Date().toISOString() });
 
     // push into redis array user and message
 
     await client.rPush(redisKey, payload);
+    await client.lTrim(redisKey, -100, -1)
 
     socket.to(room).emit("receive_message", { user, message });
   });
